@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, orientation=landscape">
+  <title>Flappy Bird Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background-color: #70c5ce;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: linear-gradient(to bottom, #70c5ce, #ffffff);
+    }
+    .lobby, .game-over-screen, .store-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to bottom, #70c5ce, #ffffff);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 10;
+    }
+    .play-button, .return-button, .store-button {
+      background-color: #ffcc00;
+      border: none;
+      padding: 15px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
+      border-radius: 10px;
+      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+      margin: 10px;
+    }
+    .play-button:hover, .return-button:hover, .store-button:hover {
+      background-color: #ffaa00;
+    }
+    .youtube-icon {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 50px;
+      height: 50px;
+      background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/YouTube_icon_%282013-2017%29.png/1024px-YouTube_icon_%282013-2017%29.png') no-repeat center center;
+      background-size: contain;
+      cursor: pointer;
+    }
+    .loading-text {
+      font-size: 32px;
+      font-weight: bold;
+      color: #ffffff;
+      text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+      margin-bottom: 20px;
+    }
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 6px solid rgba(255, 255, 255, 0.3);
+      border-top: 6px solid #ffffff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Game Lobby -->
+  <div class="lobby" id="lobby">
+    <h1 style="font-size: 48px; color: white;">Flappy Bird</h1>
+    <button class="play-button" id="playButton">Play</button>
+    <button class="store-button" id="storeButton">Store</button>
+    <div class="youtube-icon" id="youtubeIcon"></div>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div class="game-over-screen" id="gameOverScreen" style="display: none;">
+    <h1 style="font-size: 48px; color: red;">Game Over</h1>
+    <button class="play-button" id="restartButton">Restart</button>
+    <button class="return-button" id="returnButton">Return to Lobby</button>
+  </div>
+
+  <!-- Store Screen -->
+  <div class="store-screen" id="storeScreen" style="display: none;">
+    <h1 style="font-size: 48px; color: #fff;">Coming Soon</h1>
+    <button class="return-button" id="storeReturnButton">Back to Lobby</button>
+  </div>
+
+  <!-- Game Canvas -->
+  <canvas id="gameCanvas" style="display: none;"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const lobby = document.getElementById("lobby");
+    const gameOverScreen = document.getElementById("gameOverScreen");
+    const storeScreen = document.getElementById("storeScreen");
+    const playButton = document.getElementById("playButton");
+    const storeButton = document.getElementById("storeButton");
+    const restartButton = document.getElementById("restartButton");
+    const returnButton = document.getElementById("returnButton");
+    const storeReturnButton = document.getElementById("storeReturnButton");
+    const youtubeIcon = document.getElementById("youtubeIcon");
+
+    let bird = {
+      x: 50,
+      y: canvas.height / 2,
+      width: 30,
+      height: 30,
+      gravity: 0.2,
+      lift: -5,
+      velocity: 0,
+    };
+
+    let pipes = [];
+    let score = 0;
+    let gameOver = false;
+    let frame = 0;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Sound effects
+    const jumpSound = new Audio('https://www.soundjay.com/button/beep-07.wav');
+    const gameOverSound = new Audio('https://www.soundjay.com/button/beep-08b.wav');
+
+    function startGame() {
+      gameOver = false;
+      score = 0;
+      bird.y = canvas.height / 2;
+      bird.velocity = 0;
+      pipes = [];
+      frame = 0;
+      gameLoop();
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!gameOver) {
+        requestAnimationFrame(gameLoop);
+        updateGame();
+        drawGame();
+      } else {
+        canvas.style.display = "none";
+        gameOverScreen.style.display = "flex";
+        gameOverSound.play(); // Play game over sound
+      }
+    }
+
+    function updateGame() {
+      bird.velocity += bird.gravity;
+      bird.y += bird.velocity;
+
+      if (bird.y + bird.height / 2 > canvas.height || bird.y - bird.height / 2 < 0) {
+        gameOver = true;
+      }
+
+      if (frame % 120 === 0) {  // Increased gap between pipes (to 120)
+        const pipeHeight = Math.floor(Math.random() * (canvas.height - 200));
+        pipes.push({
+          x: canvas.width,
+          top: pipeHeight,
+          bottom: pipeHeight + 200,
+        });
+      }
+
+      pipes.forEach((pipe, index) => {
+        pipe.x -= 3;
+        if (pipe.x + 60 < 0) {
+          pipes.splice(index, 1);
+          score++;
+        }
+      });
+
+      pipes.forEach(pipe => {
+        if (
+          bird.x + bird.width / 2 > pipe.x &&
+          bird.x - bird.width / 2 < pipe.x + 60 &&
+          (bird.y - bird.height / 2 < pipe.top || bird.y + bird.height / 2 > pipe.bottom)
+        ) {
+          gameOver = true;
+        }
+      });
+
+      frame++;
+    }
+
+    function drawGame() {
+      // Draw Bird (Yellow)
+      ctx.fillStyle = "#FFFF00"; // Yellow bird
+      ctx.fillRect(bird.x - bird.width / 2, bird.y - bird.height / 2, bird.width, bird.height);
+
+      // Draw Pipes (Green)
+      pipes.forEach(pipe => {
+        ctx.fillStyle = "#228B22"; // Green pipes
+        ctx.fillRect(pipe.x, 0, 60, pipe.top);
+        ctx.fillRect(pipe.x, pipe.bottom, 60, canvas.height - pipe.bottom);
+      });
+
+      // Draw score
+      ctx.fillStyle = "#000";
+      ctx.font = "30px Arial";
+      ctx.fillText("Score: " + score, 20, 30);
+    }
+
+    playButton.addEventListener("click", () => {
+      lobby.style.display = "none";
+      canvas.style.display = "block";
+      startGame();
+    });
+
+    storeButton.addEventListener("click", () => {
+      lobby.style.display = "none";
+      storeScreen.style.display = "flex";
+    });
+
+    storeReturnButton.addEventListener("click", () => {
+      storeScreen.style.display = "none";
+      lobby.style.display = "flex";
+    });
+
+    restartButton.addEventListener("click", () => {
+      gameOverScreen.style.display = "none";
+      canvas.style.display = "block";
+      startGame();
+    });
+
+    returnButton.addEventListener("click", () => {
+      gameOverScreen.style.display = "none";
+      lobby.style.display = "flex";
+    });
+
+    // Bird Control with sound
+    window.addEventListener("click", () => {
+      if (!gameOver) {
+        bird.velocity = bird.lift;
+        jumpSound.play(); // Play jump sound
+      }
+    });
+
+    // YouTube Button functionality
+    youtubeIcon.addEventListener("click", () => {
+      window.open("https://youtube.com/@crafting_craze_gaming?si=tMSgiZWiRYS_ac1R", "_blank");
+    });
+  </script>
+</body>
+</html>
